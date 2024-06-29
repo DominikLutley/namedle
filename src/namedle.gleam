@@ -6,10 +6,16 @@ import gleam/string
 import lustre
 import lustre/attribute.{style}
 import lustre/element.{text}
-import lustre/element/html
-import lustre/event
+import lustre/element/html.{button, div}
+import lustre/event.{on_click}
 
 const target = "ariana"
+
+const first_row = ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
+
+const second_row = ["a", "s", "d", "f", "g", "h", "j", "k", "l"]
+
+const third_row = ["enter", "z", "x", "c", "v", "b", "n", "m", "backspace"]
 
 pub fn main() {
   let app = lustre.simple(init, update, view)
@@ -19,34 +25,71 @@ pub fn main() {
 }
 
 type Model {
-  Model(guesses: List(String), current: String)
+  Model(
+    guesses: List(String),
+    current: String,
+    known_letters: dict.Dict(String, Color),
+  )
 }
 
 fn init(_flags) -> Model {
-  Model(guesses: [], current: "")
+  Model(guesses: [], current: "", known_letters: dict.new())
 }
 
 type Msg {
   Guess
-  OnInput(value: String)
+  NewLetter(value: String)
+  Backspace
+}
+
+fn add_known_letters_from_guess(
+  known_letters: dict.Dict(String, Color),
+  guess: String,
+) {
+  let guess = match(guess)
+
+  guess
+  |> list.fold(known_letters, fn(known_letters, letter) {
+    case letter.color, dict.get(known_letters, letter.letter) {
+      Green, _ -> known_letters |> dict.insert(letter.letter, Green)
+      Yellow, Ok(Gray) | Yellow, Error(_) ->
+        known_letters |> dict.insert(letter.letter, Yellow)
+      Gray, Error(_) -> known_letters |> dict.insert(letter.letter, Gray)
+      _, _ -> known_letters
+    }
+  })
 }
 
 fn update(model: Model, msg) {
   case msg {
-    OnInput(value) -> {
-      Model(guesses: model.guesses, current: value)
+    NewLetter(value) -> {
+      case string.length(target) - string.length(model.current) {
+        diff if diff > 0 ->
+          Model(
+            guesses: model.guesses,
+            current: model.current <> value,
+            known_letters: model.known_letters,
+          )
+        _ -> model
+      }
     }
+    Backspace ->
+      Model(
+        guesses: model.guesses,
+        current: model.current |> string.drop_right(1),
+        known_letters: model.known_letters,
+      )
     Guess -> {
-      case string.length(model.current) {
-        l if l > 1 -> {
+      case string.length(target) - string.length(model.current) {
+        diff if diff == 0 -> {
           Model(
             guesses: list.append(model.guesses, [model.current]),
             current: "",
+            known_letters: model.known_letters
+              |> add_known_letters_from_guess(model.current),
           )
         }
-        _ -> {
-          Model(guesses: model.guesses, current: model.current)
-        }
+        _ -> model
       }
     }
   }
@@ -61,7 +104,7 @@ pub type Color {
 fn hex_from_color(c) {
   case c {
     Gray -> "#333"
-    Yellow -> "#773"
+    Yellow -> "#883"
     Green -> "#393"
   }
 }
@@ -81,10 +124,10 @@ fn assert_eq(a, b, msg) {
   }
 }
 
-pub fn match_greens(
-  guess: List(String),
-  target: List(String),
-) -> #(List(Letter), dict.Dict(String, Int)) {
+pub fn match_greens(guess: String) -> #(List(Letter), dict.Dict(String, Int)) {
+  let guess = string.to_graphemes(guess |> string.lowercase)
+  let target = string.to_graphemes(target |> string.lowercase)
+
   assert_eq(
     list.length(guess),
     list.length(target),
@@ -148,30 +191,81 @@ pub fn match_yellows(
   }
 }
 
-fn guess_view(guess: String) {
-  let guess = string.to_graphemes(guess |> string.lowercase)
-  let target = string.to_graphemes(target |> string.lowercase)
+fn match(guess: String) -> List(Letter) {
+  let #(guess, unmatched) = match_greens(guess)
+  match_yellows(guess, unmatched)
+}
 
-  let #(guess, unmatched) = match_greens(guess, target)
-  let guess = match_yellows(guess, unmatched)
-
+fn letter_container(children) {
   html.div(
     [style([#("display", "flex"), #("gap", "1rem")])],
-    guess
+    children |> list.map(letter_view),
+  )
+}
+
+fn letter_view(letter: Letter) {
+  html.div(
+    [
+      style([
+        #("width", "1.5em"),
+        #("height", "1.5em"),
+        #("font-size", "4rem"),
+        #("background-color", hex_from_color(letter.color)),
+        #("text-transform", "uppercase"),
+        #("display", "grid"),
+        #("place-items", "center"),
+      ]),
+    ],
+    [element.text(letter.letter)],
+  )
+}
+
+fn guess_view(guess: String) {
+  let guess = match(guess)
+
+  letter_container(guess)
+}
+
+fn keyboard_row_view(row, model: Model) {
+  div(
+    [style([#("display", "flex"), #("gap", "1rem")])],
+    row
       |> list.map(fn(letter) {
-        html.div(
+        button(
           [
+            on_click(case letter {
+              "backspace" -> Backspace
+              "enter" -> Guess
+              l -> NewLetter(l)
+            }),
             style([
-              #("width", "1.5em"),
-              #("height", "1.5em"),
-              #("font-size", "4rem"),
-              #("background-color", hex_from_color(letter.color)),
-              #("text-transform", "capitalize"),
               #("display", "grid"),
+              #("border", "none"),
+              #("background-color", case
+                model.known_letters
+                |> dict.get(letter)
+              {
+                Ok(c) -> hex_from_color(c)
+                _ -> "#555"
+              }),
               #("place-items", "center"),
+              #("cursor", "pointer"),
+              #("width", case letter {
+                "backspace" | "enter" -> "2.5em"
+                _ -> "1.5em"
+              }),
+              #("height", "2em"),
+              #("font-size", "1.75rem"),
+              #("text-transform", "uppercase"),
             ]),
           ],
-          [element.text(letter.letter)],
+          [
+            case letter {
+              "backspace" -> text("⌫")
+              "enter" -> text("↩")
+              l -> text(l)
+            },
+          ],
         )
       }),
   )
@@ -191,25 +285,27 @@ fn view(model: Model) {
     [
       html.h1([], [element.text("Guess the name!")]),
       element.fragment(list.map(model.guesses, guess_view)),
-      html.div([style([#("display", "flex"), #("gap", "2rem")])], [
-        html.input([
-          style([#("font-size", "2rem"), #("text-transform", "uppercase")]),
-          event.on_input(OnInput),
-        ]),
-        html.button(
-          [
-            style([
-              #("background-color", "#44a"),
-              #("font-size", "2rem"),
-              #("border", "none"),
-              #("padding", "0.5em"),
-              #("cursor", "pointer"),
-            ]),
-            event.on_click(Guess),
-          ],
-          [text("Guess")],
-        ),
-      ]),
+      letter_container(
+        model.current
+        |> string.pad_right(to: string.length(target), with: " ")
+        |> string.to_graphemes
+        |> list.map(fn(letter) { Letter(letter: letter, color: Gray) }),
+      ),
+      html.div(
+        [
+          style([
+            #("display", "flex"),
+            #("flex-direction", "column"),
+            #("align-items", "center"),
+            #("gap", "1rem"),
+          ]),
+        ],
+        [
+          keyboard_row_view(first_row, model),
+          keyboard_row_view(second_row, model),
+          keyboard_row_view(third_row, model),
+        ],
+      ),
     ],
   )
 }

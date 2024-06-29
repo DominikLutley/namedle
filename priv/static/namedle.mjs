@@ -109,17 +109,17 @@ var BitArray = class _BitArray {
   }
 };
 var UtfCodepoint = class {
-  constructor(value2) {
-    this.value = value2;
+  constructor(value) {
+    this.value = value;
   }
 };
 function byteArrayToInt(byteArray) {
   byteArray = byteArray.reverse();
-  let value2 = 0;
+  let value = 0;
   for (let i = byteArray.length - 1; i >= 0; i--) {
-    value2 = value2 * 256 + byteArray[i];
+    value = value * 256 + byteArray[i];
   }
-  return value2;
+  return value;
 }
 function byteArrayToFloat(byteArray) {
   return new Float64Array(byteArray.reverse().buffer)[0];
@@ -131,9 +131,9 @@ var Result = class _Result extends CustomType {
   }
 };
 var Ok = class extends Result {
-  constructor(value2) {
+  constructor(value) {
     super();
-    this[0] = value2;
+    this[0] = value;
   }
   // @internal
   isOk() {
@@ -216,6 +216,23 @@ function structurallyCompatibleObjects(a, b) {
     return false;
   return a.constructor === b.constructor;
 }
+function remainderInt(a, b) {
+  if (b === 0) {
+    return 0;
+  } else {
+    return a % b;
+  }
+}
+function divideInt(a, b) {
+  return Math.trunc(divideFloat(a, b));
+}
+function divideFloat(a, b) {
+  if (b === 0) {
+    return 0;
+  } else {
+    return a / b;
+  }
+}
 function makeError(variant, module, line, fn, message, extra) {
   let error = new globalThis.Error(message);
   error.gleam_error = variant;
@@ -236,14 +253,6 @@ var Some = class extends CustomType {
 };
 var None = class extends CustomType {
 };
-function to_result(option, e) {
-  if (option instanceof Some) {
-    let a = option[0];
-    return new Ok(a);
-  } else {
-    return new Error(e);
-  }
-}
 function from_result(result) {
   if (result.isOk()) {
     let a = result[0];
@@ -251,11 +260,6 @@ function from_result(result) {
   } else {
     return new None();
   }
-}
-
-// build/dev/javascript/gleam_stdlib/gleam/int.mjs
-function to_string2(x) {
-  return to_string(x);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/list.mjs
@@ -310,6 +314,48 @@ function do_map(loop$list, loop$fun, loop$acc) {
 }
 function map(list, fun) {
   return do_map(list, fun, toList([]));
+}
+function drop(loop$list, loop$n) {
+  while (true) {
+    let list = loop$list;
+    let n = loop$n;
+    let $ = n <= 0;
+    if ($) {
+      return list;
+    } else {
+      if (list.hasLength(0)) {
+        return toList([]);
+      } else {
+        let xs = list.tail;
+        loop$list = xs;
+        loop$n = n - 1;
+      }
+    }
+  }
+}
+function do_take(loop$list, loop$n, loop$acc) {
+  while (true) {
+    let list = loop$list;
+    let n = loop$n;
+    let acc = loop$acc;
+    let $ = n <= 0;
+    if ($) {
+      return reverse(acc);
+    } else {
+      if (list.hasLength(0)) {
+        return reverse(acc);
+      } else {
+        let x = list.head;
+        let xs = list.tail;
+        loop$list = xs;
+        loop$n = n - 1;
+        loop$acc = prepend(x, acc);
+      }
+    }
+  }
+}
+function take(list, n) {
+  return do_take(list, n, toList([]));
 }
 function do_append(loop$first, loop$second) {
   while (true) {
@@ -375,129 +421,17 @@ function zip(list, other) {
   return do_zip(list, other, toList([]));
 }
 
-// build/dev/javascript/gleam_stdlib/gleam/result.mjs
-function map2(result, fun) {
-  if (result.isOk()) {
-    let x = result[0];
-    return new Ok(fun(x));
-  } else {
-    let e = result[0];
-    return new Error(e);
-  }
-}
-function map_error(result, fun) {
-  if (result.isOk()) {
-    let x = result[0];
-    return new Ok(x);
-  } else {
-    let error = result[0];
-    return new Error(fun(error));
-  }
-}
-function try$(result, fun) {
-  if (result.isOk()) {
-    let x = result[0];
-    return fun(x);
-  } else {
-    let e = result[0];
-    return new Error(e);
-  }
-}
-
 // build/dev/javascript/gleam_stdlib/gleam/string_builder.mjs
 function from_strings(strings) {
   return concat(strings);
 }
-function to_string3(builder) {
+function to_string2(builder) {
   return identity(builder);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
-var DecodeError = class extends CustomType {
-  constructor(expected, found, path) {
-    super();
-    this.expected = expected;
-    this.found = found;
-    this.path = path;
-  }
-};
 function from(a) {
   return identity(a);
-}
-function string(data) {
-  return decode_string(data);
-}
-function classify(data) {
-  return classify_dynamic(data);
-}
-function int(data) {
-  return decode_int(data);
-}
-function any(decoders) {
-  return (data) => {
-    if (decoders.hasLength(0)) {
-      return new Error(
-        toList([new DecodeError("another type", classify(data), toList([]))])
-      );
-    } else {
-      let decoder = decoders.head;
-      let decoders$1 = decoders.tail;
-      let $ = decoder(data);
-      if ($.isOk()) {
-        let decoded = $[0];
-        return new Ok(decoded);
-      } else {
-        return any(decoders$1)(data);
-      }
-    }
-  };
-}
-function push_path(error, name) {
-  let name$1 = from(name);
-  let decoder = any(
-    toList([string, (x) => {
-      return map2(int(x), to_string2);
-    }])
-  );
-  let name$2 = (() => {
-    let $ = decoder(name$1);
-    if ($.isOk()) {
-      let name$22 = $[0];
-      return name$22;
-    } else {
-      let _pipe = toList(["<", classify(name$1), ">"]);
-      let _pipe$1 = from_strings(_pipe);
-      return to_string3(_pipe$1);
-    }
-  })();
-  return error.withFields({ path: prepend(name$2, error.path) });
-}
-function map_errors(result, f) {
-  return map_error(
-    result,
-    (_capture) => {
-      return map(_capture, f);
-    }
-  );
-}
-function field(name, inner_type) {
-  return (value2) => {
-    let missing_field_error = new DecodeError("field", "nothing", toList([]));
-    return try$(
-      decode_field(value2, name),
-      (maybe_inner) => {
-        let _pipe = maybe_inner;
-        let _pipe$1 = to_result(_pipe, toList([missing_field_error]));
-        let _pipe$2 = try$(_pipe$1, inner_type);
-        return map_errors(
-          _pipe$2,
-          (_capture) => {
-            return push_path(_capture, name);
-          }
-        );
-      }
-    );
-  };
 }
 
 // build/dev/javascript/gleam_stdlib/dict.mjs
@@ -1203,9 +1137,6 @@ var NOT_FOUND = {};
 function identity(x) {
   return x;
 }
-function to_string(term) {
-  return term.toString();
-}
 function string_length(string3) {
   if (string3 === "") {
     return 0;
@@ -1257,76 +1188,14 @@ function new_map() {
   return Dict.new();
 }
 function map_get(map4, key) {
-  const value2 = map4.get(key, NOT_FOUND);
-  if (value2 === NOT_FOUND) {
+  const value = map4.get(key, NOT_FOUND);
+  if (value === NOT_FOUND) {
     return new Error(Nil);
   }
-  return new Ok(value2);
+  return new Ok(value);
 }
-function map_insert(key, value2, map4) {
-  return map4.set(key, value2);
-}
-function classify_dynamic(data) {
-  if (typeof data === "string") {
-    return "String";
-  } else if (typeof data === "boolean") {
-    return "Bool";
-  } else if (data instanceof Result) {
-    return "Result";
-  } else if (data instanceof List) {
-    return "List";
-  } else if (data instanceof BitArray) {
-    return "BitArray";
-  } else if (data instanceof Dict) {
-    return "Dict";
-  } else if (Number.isInteger(data)) {
-    return "Int";
-  } else if (Array.isArray(data)) {
-    return `Tuple of ${data.length} elements`;
-  } else if (typeof data === "number") {
-    return "Float";
-  } else if (data === null) {
-    return "Null";
-  } else if (data === void 0) {
-    return "Nil";
-  } else {
-    const type = typeof data;
-    return type.charAt(0).toUpperCase() + type.slice(1);
-  }
-}
-function decoder_error(expected, got) {
-  return decoder_error_no_classify(expected, classify_dynamic(got));
-}
-function decoder_error_no_classify(expected, got) {
-  return new Error(
-    List.fromArray([new DecodeError(expected, got, List.fromArray([]))])
-  );
-}
-function decode_string(data) {
-  return typeof data === "string" ? new Ok(data) : decoder_error("String", data);
-}
-function decode_int(data) {
-  return Number.isInteger(data) ? new Ok(data) : decoder_error("Int", data);
-}
-function decode_field(value2, name) {
-  const not_a_map_error = () => decoder_error("Dict", value2);
-  if (value2 instanceof Dict || value2 instanceof WeakMap || value2 instanceof Map) {
-    const entry = map_get(value2, name);
-    return new Ok(entry.isOk() ? new Some(entry[0]) : new None());
-  } else if (value2 === null) {
-    return not_a_map_error();
-  } else if (Object.getPrototypeOf(value2) == Object.prototype) {
-    return try_get_field(value2, name, () => new Ok(new None()));
-  } else {
-    return try_get_field(value2, name, not_a_map_error);
-  }
-}
-function try_get_field(value2, field2, or_else) {
-  try {
-    return field2 in value2 ? new Ok(new Some(value2[field2])) : or_else();
-  } catch {
-    return or_else();
-  }
+function map_insert(key, value, map4) {
+  return map4.set(key, value);
 }
 function inspect(v) {
   const t = typeof v;
@@ -1371,10 +1240,10 @@ function inspect(v) {
 function inspectDict(map4) {
   let body = "dict.from_list([";
   let first2 = true;
-  map4.forEach((value2, key) => {
+  map4.forEach((value, key) => {
     if (!first2)
       body = body + ", ";
-    body = body + "#(" + inspect(key) + ", " + inspect(value2) + ")";
+    body = body + "#(" + inspect(key) + ", " + inspect(value) + ")";
     first2 = false;
   });
   return body + "])";
@@ -1391,8 +1260,8 @@ function inspectObject(v) {
 }
 function inspectCustomType(record) {
   const props = Object.keys(record).map((label) => {
-    const value2 = inspect(record[label]);
-    return isNaN(parseInt(label)) ? `${label}: ${value2}` : value2;
+    const value = inspect(record[label]);
+    return isNaN(parseInt(label)) ? `${label}: ${value}` : value;
   }).join(", ");
   return props ? `${record.constructor.name}(${props})` : record.constructor.name;
 }
@@ -1413,8 +1282,8 @@ function new$() {
 function get(from2, get2) {
   return map_get(from2, get2);
 }
-function insert(dict, key, value2) {
-  return map_insert(key, value2, dict);
+function insert(dict, key, value) {
+  return map_insert(key, value, dict);
 }
 function update(dict, key, fun) {
   let _pipe = dict;
@@ -1426,6 +1295,143 @@ function update(dict, key, fun) {
   })(_pipe$3);
 }
 
+// build/dev/javascript/gleam_stdlib/gleam/iterator.mjs
+var Stop = class extends CustomType {
+};
+var Continue2 = class extends CustomType {
+  constructor(x0, x1) {
+    super();
+    this[0] = x0;
+    this[1] = x1;
+  }
+};
+var Iterator = class extends CustomType {
+  constructor(continuation) {
+    super();
+    this.continuation = continuation;
+  }
+};
+var Next = class extends CustomType {
+  constructor(element2, accumulator) {
+    super();
+    this.element = element2;
+    this.accumulator = accumulator;
+  }
+};
+function stop() {
+  return new Stop();
+}
+function do_unfold(initial, f) {
+  return () => {
+    let $ = f(initial);
+    if ($ instanceof Next) {
+      let x = $.element;
+      let acc = $.accumulator;
+      return new Continue2(x, do_unfold(acc, f));
+    } else {
+      return new Stop();
+    }
+  };
+}
+function unfold(initial, f) {
+  let _pipe = initial;
+  let _pipe$1 = do_unfold(_pipe, f);
+  return new Iterator(_pipe$1);
+}
+function repeatedly(f) {
+  return unfold(void 0, (_) => {
+    return new Next(f(), void 0);
+  });
+}
+function repeat(x) {
+  return repeatedly(() => {
+    return x;
+  });
+}
+function do_fold(loop$continuation, loop$f, loop$accumulator) {
+  while (true) {
+    let continuation = loop$continuation;
+    let f = loop$f;
+    let accumulator = loop$accumulator;
+    let $ = continuation();
+    if ($ instanceof Continue2) {
+      let elem = $[0];
+      let next = $[1];
+      loop$continuation = next;
+      loop$f = f;
+      loop$accumulator = f(accumulator, elem);
+    } else {
+      return accumulator;
+    }
+  }
+}
+function fold2(iterator, initial, f) {
+  let _pipe = iterator.continuation;
+  return do_fold(_pipe, f, initial);
+}
+function to_list(iterator) {
+  let _pipe = iterator;
+  let _pipe$1 = fold2(
+    _pipe,
+    toList([]),
+    (acc, e) => {
+      return prepend(e, acc);
+    }
+  );
+  return reverse(_pipe$1);
+}
+function do_take2(continuation, desired) {
+  return () => {
+    let $ = desired > 0;
+    if (!$) {
+      return new Stop();
+    } else {
+      let $1 = continuation();
+      if ($1 instanceof Stop) {
+        return new Stop();
+      } else {
+        let e = $1[0];
+        let next = $1[1];
+        return new Continue2(e, do_take2(next, desired - 1));
+      }
+    }
+  };
+}
+function take2(iterator, desired) {
+  let _pipe = iterator.continuation;
+  let _pipe$1 = do_take2(_pipe, desired);
+  return new Iterator(_pipe$1);
+}
+function do_append2(first2, second) {
+  let $ = first2();
+  if ($ instanceof Continue2) {
+    let e = $[0];
+    let first$1 = $[1];
+    return new Continue2(e, () => {
+      return do_append2(first$1, second);
+    });
+  } else {
+    return second();
+  }
+}
+function append2(first2, second) {
+  let _pipe = () => {
+    return do_append2(first2.continuation, second.continuation);
+  };
+  return new Iterator(_pipe);
+}
+function once(f) {
+  let _pipe = () => {
+    return new Continue2(f(), stop);
+  };
+  return new Iterator(_pipe);
+}
+function single(elem) {
+  return once(() => {
+    return elem;
+  });
+}
+
 // build/dev/javascript/gleam_stdlib/gleam/string.mjs
 function length3(string3) {
   return string_length(string3);
@@ -1433,9 +1439,67 @@ function length3(string3) {
 function lowercase2(string3) {
   return lowercase(string3);
 }
+function concat3(strings) {
+  let _pipe = strings;
+  let _pipe$1 = from_strings(_pipe);
+  return to_string2(_pipe$1);
+}
+function do_slice(string3, idx, len) {
+  let _pipe = string3;
+  let _pipe$1 = graphemes(_pipe);
+  let _pipe$2 = drop(_pipe$1, idx);
+  let _pipe$3 = take(_pipe$2, len);
+  return concat3(_pipe$3);
+}
+function slice(string3, idx, len) {
+  let $ = len < 0;
+  if ($) {
+    return "";
+  } else {
+    let $1 = idx < 0;
+    if ($1) {
+      let translated_idx = length3(string3) + idx;
+      let $2 = translated_idx < 0;
+      if ($2) {
+        return "";
+      } else {
+        return do_slice(string3, translated_idx, len);
+      }
+    } else {
+      return do_slice(string3, idx, len);
+    }
+  }
+}
+function drop_right(string3, num_graphemes) {
+  let $ = num_graphemes < 0;
+  if ($) {
+    return string3;
+  } else {
+    return slice(string3, 0, length3(string3) - num_graphemes);
+  }
+}
+function padding(size, pad_string) {
+  let pad_length = length3(pad_string);
+  let num_pads = divideInt(size, pad_length);
+  let extra = remainderInt(size, pad_length);
+  let _pipe = repeat(pad_string);
+  let _pipe$1 = take2(_pipe, num_pads);
+  return append2(
+    _pipe$1,
+    single(slice(pad_string, 0, extra))
+  );
+}
+function pad_right(string3, desired_length, pad_string) {
+  let current_length = length3(string3);
+  let to_pad_length = desired_length - current_length;
+  let _pipe = single(string3);
+  let _pipe$1 = append2(_pipe, padding(to_pad_length, pad_string));
+  let _pipe$2 = to_list(_pipe$1);
+  return concat3(_pipe$2);
+}
 function inspect2(term) {
   let _pipe = inspect(term);
-  return to_string3(_pipe);
+  return to_string2(_pipe);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/io.mjs
@@ -1509,8 +1573,8 @@ var Event = class extends CustomType {
 };
 
 // build/dev/javascript/lustre/lustre/attribute.mjs
-function attribute(name, value2) {
-  return new Attribute(name, from(value2), false);
+function attribute(name, value) {
+  return new Attribute(name, from(value), false);
 }
 function on(name, handler) {
   return new Event("on" + name, handler);
@@ -1675,15 +1739,15 @@ function createElementNode({ prev, next, dispatch, stack }) {
   let innerHTML = null;
   for (const attr of next.attrs) {
     const name = attr[0];
-    const value2 = attr[1];
+    const value = attr[1];
     if (attr.as_property) {
-      if (el2[name] !== value2)
-        el2[name] = value2;
+      if (el2[name] !== value)
+        el2[name] = value;
       if (canMorph)
         prevAttributes.delete(name);
     } else if (name.startsWith("on")) {
       const eventName = name.slice(2);
-      const callback = dispatch(value2);
+      const callback = dispatch(value);
       if (!handlersForEl.has(eventName)) {
         el2.addEventListener(eventName, lustreGenericEventHandler);
       }
@@ -1697,18 +1761,18 @@ function createElementNode({ prev, next, dispatch, stack }) {
         el2.addEventListener(eventName, lustreGenericEventHandler);
       }
       handlersForEl.set(eventName, callback);
-      el2.setAttribute(name, value2);
+      el2.setAttribute(name, value);
     } else if (name === "class") {
-      className = className === null ? value2 : className + " " + value2;
+      className = className === null ? value : className + " " + value;
     } else if (name === "style") {
-      style2 = style2 === null ? value2 : style2 + value2;
+      style2 = style2 === null ? value : style2 + value;
     } else if (name === "dangerous-unescaped-html") {
-      innerHTML = value2;
+      innerHTML = value;
     } else {
-      if (el2.getAttribute(name) !== value2)
-        el2.setAttribute(name, value2);
+      if (el2.getAttribute(name) !== value)
+        el2.setAttribute(name, value);
       if (name === "value" || name === "selected")
-        el2[name] = value2;
+        el2[name] = value;
       if (canMorph)
         prevAttributes.delete(name);
     }
@@ -2066,9 +2130,6 @@ function div(attrs, children) {
 function button(attrs, children) {
   return element("button", attrs, children);
 }
-function input(attrs) {
-  return element("input", attrs, toList([]));
-}
 
 // build/dev/javascript/lustre/lustre/event.mjs
 function on2(name, handler) {
@@ -2079,37 +2140,25 @@ function on_click(msg) {
     return new Ok(msg);
   });
 }
-function value(event2) {
-  let _pipe = event2;
-  return field("target", field("value", string))(
-    _pipe
-  );
-}
-function on_input(msg) {
-  return on2(
-    "input",
-    (event2) => {
-      let _pipe = value(event2);
-      return map2(_pipe, msg);
-    }
-  );
-}
 
 // build/dev/javascript/namedle/namedle.mjs
 var Model = class extends CustomType {
-  constructor(guesses, current) {
+  constructor(guesses, current, known_letters) {
     super();
     this.guesses = guesses;
     this.current = current;
+    this.known_letters = known_letters;
   }
 };
 var Guess = class extends CustomType {
 };
-var OnInput = class extends CustomType {
-  constructor(value2) {
+var NewLetter = class extends CustomType {
+  constructor(value) {
     super();
-    this.value = value2;
+    this.value = value;
   }
+};
+var Backspace = class extends CustomType {
 };
 var Gray = class extends CustomType {
 };
@@ -2125,27 +2174,13 @@ var Letter = class extends CustomType {
   }
 };
 function init2(_) {
-  return new Model(toList([]), "");
-}
-function update2(model, msg) {
-  if (msg instanceof OnInput) {
-    let value2 = msg.value;
-    return new Model(model.guesses, value2);
-  } else {
-    let $ = length3(model.current);
-    if ($ > 1) {
-      let l = $;
-      return new Model(append(model.guesses, toList([model.current])), "");
-    } else {
-      return new Model(model.guesses, model.current);
-    }
-  }
+  return new Model(toList([]), "", new$());
 }
 function hex_from_color(c) {
   if (c instanceof Gray) {
     return "#333";
   } else if (c instanceof Yellow) {
-    return "#773";
+    return "#883";
   } else {
     return "#393";
   }
@@ -2157,61 +2192,15 @@ function assert_eq(a, b, msg) {
   } else {
     debug(a);
     debug(b);
-    throw makeError("panic", "namedle", 79, "assert_eq", msg, {});
+    throw makeError("panic", "namedle", 122, "assert_eq", msg, {});
   }
-}
-function match_greens(guess, target2) {
-  assert_eq(
-    length(guess),
-    length(target2),
-    "guess and target must have same length"
-  );
-  let _pipe = zip(guess, target2);
-  return fold(
-    _pipe,
-    [toList([]), new$()],
-    (res, val) => {
-      let letters = res[0];
-      let unmatched = res[1];
-      let guess$1 = val[0];
-      let target$1 = val[1];
-      assert_eq(length3(guess$1), 1, "guess longer than 1 char");
-      assert_eq(length3(target$1), 1, "target longer than 1 char");
-      let $ = guess$1 === target$1;
-      if ($) {
-        return [
-          append(letters, toList([new Letter(guess$1, new Green())])),
-          unmatched
-        ];
-      } else {
-        return [
-          append(letters, toList([new Letter(guess$1, new Gray())])),
-          (() => {
-            let _pipe$1 = unmatched;
-            return update(
-              _pipe$1,
-              target$1,
-              (count) => {
-                if (count instanceof None) {
-                  return 1;
-                } else {
-                  let count$1 = count[0];
-                  return count$1 + 1;
-                }
-              }
-            );
-          })()
-        ];
-      }
-    }
-  );
 }
 function match_yellows(guess, unmatched) {
   if (guess.hasLength(0)) {
     throw makeError(
       "panic",
       "namedle",
-      124,
+      167,
       "match_yellows",
       "empty guess list should never happen",
       {}
@@ -2254,52 +2243,261 @@ function match_yellows(guess, unmatched) {
     return prepend(letter$1, match_yellows(rest, unmatched$1));
   }
 }
-var target = "ariana";
-function guess_view(guess) {
-  let guess$1 = graphemes(
-    (() => {
-      let _pipe = guess;
-      return lowercase2(_pipe);
-    })()
+function letter_view(letter) {
+  return div(
+    toList([
+      style(
+        toList([
+          ["width", "1.5em"],
+          ["height", "1.5em"],
+          ["font-size", "4rem"],
+          ["background-color", hex_from_color(letter.color)],
+          ["text-transform", "uppercase"],
+          ["display", "grid"],
+          ["place-items", "center"]
+        ])
+      )
+    ]),
+    toList([text(letter.letter)])
   );
-  let target$1 = graphemes(
-    (() => {
-      let _pipe = target;
-      return lowercase2(_pipe);
-    })()
-  );
-  let $ = match_greens(guess$1, target$1);
-  let guess$2 = $[0];
-  let unmatched = $[1];
-  let guess$3 = match_yellows(guess$2, unmatched);
+}
+function letter_container(children) {
   return div(
     toList([style(toList([["display", "flex"], ["gap", "1rem"]]))]),
     (() => {
-      let _pipe = guess$3;
+      let _pipe = children;
+      return map(_pipe, letter_view);
+    })()
+  );
+}
+function keyboard_row_view(row, model) {
+  return div(
+    toList([style(toList([["display", "flex"], ["gap", "1rem"]]))]),
+    (() => {
+      let _pipe = row;
       return map(
         _pipe,
         (letter) => {
-          return div(
+          return button(
             toList([
+              on_click(
+                (() => {
+                  if (letter === "backspace") {
+                    return new Backspace();
+                  } else if (letter === "enter") {
+                    return new Guess();
+                  } else {
+                    let l = letter;
+                    return new NewLetter(l);
+                  }
+                })()
+              ),
               style(
                 toList([
-                  ["width", "1.5em"],
-                  ["height", "1.5em"],
-                  ["font-size", "4rem"],
-                  ["background-color", hex_from_color(letter.color)],
-                  ["text-transform", "capitalize"],
                   ["display", "grid"],
-                  ["place-items", "center"]
+                  ["border", "none"],
+                  [
+                    "background-color",
+                    (() => {
+                      let $ = (() => {
+                        let _pipe$1 = model.known_letters;
+                        return get(_pipe$1, letter);
+                      })();
+                      if ($.isOk()) {
+                        let c = $[0];
+                        return hex_from_color(c);
+                      } else {
+                        return "#555";
+                      }
+                    })()
+                  ],
+                  ["place-items", "center"],
+                  ["cursor", "pointer"],
+                  [
+                    "width",
+                    (() => {
+                      if (letter === "backspace") {
+                        return "2.5em";
+                      } else if (letter === "enter") {
+                        return "2.5em";
+                      } else {
+                        return "1.5em";
+                      }
+                    })()
+                  ],
+                  ["height", "2em"],
+                  ["font-size", "1.75rem"],
+                  ["text-transform", "uppercase"]
                 ])
               )
             ]),
-            toList([text(letter.letter)])
+            toList([
+              (() => {
+                if (letter === "backspace") {
+                  return text("\u232B");
+                } else if (letter === "enter") {
+                  return text("\u21A9");
+                } else {
+                  let l = letter;
+                  return text(l);
+                }
+              })()
+            ])
           );
         }
       );
     })()
   );
 }
+var target = "ariana";
+function match_greens(guess) {
+  let guess$1 = graphemes(
+    (() => {
+      let _pipe2 = guess;
+      return lowercase2(_pipe2);
+    })()
+  );
+  let target$1 = graphemes(
+    (() => {
+      let _pipe2 = target;
+      return lowercase2(_pipe2);
+    })()
+  );
+  assert_eq(
+    length(guess$1),
+    length(target$1),
+    "guess and target must have same length"
+  );
+  let _pipe = zip(guess$1, target$1);
+  return fold(
+    _pipe,
+    [toList([]), new$()],
+    (res, val) => {
+      let letters = res[0];
+      let unmatched = res[1];
+      let guess$2 = val[0];
+      let target$2 = val[1];
+      assert_eq(length3(guess$2), 1, "guess longer than 1 char");
+      assert_eq(length3(target$2), 1, "target longer than 1 char");
+      let $ = guess$2 === target$2;
+      if ($) {
+        return [
+          append(letters, toList([new Letter(guess$2, new Green())])),
+          unmatched
+        ];
+      } else {
+        return [
+          append(letters, toList([new Letter(guess$2, new Gray())])),
+          (() => {
+            let _pipe$1 = unmatched;
+            return update(
+              _pipe$1,
+              target$2,
+              (count) => {
+                if (count instanceof None) {
+                  return 1;
+                } else {
+                  let count$1 = count[0];
+                  return count$1 + 1;
+                }
+              }
+            );
+          })()
+        ];
+      }
+    }
+  );
+}
+function match(guess) {
+  let $ = match_greens(guess);
+  let guess$1 = $[0];
+  let unmatched = $[1];
+  return match_yellows(guess$1, unmatched);
+}
+function add_known_letters_from_guess(known_letters, guess) {
+  let guess$1 = match(guess);
+  let _pipe = guess$1;
+  return fold(
+    _pipe,
+    known_letters,
+    (known_letters2, letter) => {
+      let $ = letter.color;
+      let $1 = get(known_letters2, letter.letter);
+      if ($ instanceof Green) {
+        let _pipe$1 = known_letters2;
+        return insert(_pipe$1, letter.letter, new Green());
+      } else if ($ instanceof Yellow && $1.isOk() && $1[0] instanceof Gray) {
+        let _pipe$1 = known_letters2;
+        return insert(_pipe$1, letter.letter, new Yellow());
+      } else if ($ instanceof Yellow && !$1.isOk()) {
+        let _pipe$1 = known_letters2;
+        return insert(_pipe$1, letter.letter, new Yellow());
+      } else if ($ instanceof Gray && !$1.isOk()) {
+        let _pipe$1 = known_letters2;
+        return insert(_pipe$1, letter.letter, new Gray());
+      } else {
+        return known_letters2;
+      }
+    }
+  );
+}
+function update2(model, msg) {
+  if (msg instanceof NewLetter) {
+    let value = msg.value;
+    let $ = length3(target) - length3(model.current);
+    if ($ > 0) {
+      let diff2 = $;
+      return new Model(
+        model.guesses,
+        model.current + value,
+        model.known_letters
+      );
+    } else {
+      return model;
+    }
+  } else if (msg instanceof Backspace) {
+    return new Model(
+      model.guesses,
+      (() => {
+        let _pipe = model.current;
+        return drop_right(_pipe, 1);
+      })(),
+      model.known_letters
+    );
+  } else {
+    let $ = length3(target) - length3(model.current);
+    if ($ === 0) {
+      let diff2 = $;
+      return new Model(
+        append(model.guesses, toList([model.current])),
+        "",
+        (() => {
+          let _pipe = model.known_letters;
+          return add_known_letters_from_guess(_pipe, model.current);
+        })()
+      );
+    } else {
+      return model;
+    }
+  }
+}
+function guess_view(guess) {
+  let guess$1 = match(guess);
+  return letter_container(guess$1);
+}
+var first_row = toList(["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]);
+var second_row = toList(["a", "s", "d", "f", "g", "h", "j", "k", "l"]);
+var third_row = toList([
+  "enter",
+  "z",
+  "x",
+  "c",
+  "v",
+  "b",
+  "n",
+  "m",
+  "backspace"
+]);
 function view(model) {
   return main(
     toList([
@@ -2316,34 +2514,34 @@ function view(model) {
     toList([
       h1(toList([]), toList([text("Guess the name!")])),
       fragment(map(model.guesses, guess_view)),
+      letter_container(
+        (() => {
+          let _pipe = model.current;
+          let _pipe$1 = pad_right(_pipe, length3(target), " ");
+          let _pipe$2 = graphemes(_pipe$1);
+          return map(
+            _pipe$2,
+            (letter) => {
+              return new Letter(letter, new Gray());
+            }
+          );
+        })()
+      ),
       div(
-        toList([style(toList([["display", "flex"], ["gap", "2rem"]]))]),
         toList([
-          input(
+          style(
             toList([
-              style(
-                toList([["font-size", "2rem"], ["text-transform", "uppercase"]])
-              ),
-              on_input((var0) => {
-                return new OnInput(var0);
-              })
+              ["display", "flex"],
+              ["flex-direction", "column"],
+              ["align-items", "center"],
+              ["gap", "1rem"]
             ])
-          ),
-          button(
-            toList([
-              style(
-                toList([
-                  ["background-color", "#44a"],
-                  ["font-size", "2rem"],
-                  ["border", "none"],
-                  ["padding", "0.5em"],
-                  ["cursor", "pointer"]
-                ])
-              ),
-              on_click(new Guess())
-            ]),
-            toList([text("Guess")])
           )
+        ]),
+        toList([
+          keyboard_row_view(first_row, model),
+          keyboard_row_view(second_row, model),
+          keyboard_row_view(third_row, model)
         ])
       )
     ])
@@ -2356,7 +2554,7 @@ function main2() {
     throw makeError(
       "assignment_no_match",
       "namedle",
-      16,
+      22,
       "main",
       "Assignment pattern did not match",
       { value: $ }
