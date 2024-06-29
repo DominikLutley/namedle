@@ -253,6 +253,14 @@ var Some = class extends CustomType {
 };
 var None = class extends CustomType {
 };
+function to_result(option, e) {
+  if (option instanceof Some) {
+    let a = option[0];
+    return new Ok(a);
+  } else {
+    return new Error(e);
+  }
+}
 function from_result(result) {
   if (result.isOk()) {
     let a = result[0];
@@ -260,6 +268,11 @@ function from_result(result) {
   } else {
     return new None();
   }
+}
+
+// build/dev/javascript/gleam_stdlib/gleam/int.mjs
+function to_string2(x) {
+  return to_string(x);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/list.mjs
@@ -421,17 +434,129 @@ function zip(list, other) {
   return do_zip(list, other, toList([]));
 }
 
+// build/dev/javascript/gleam_stdlib/gleam/result.mjs
+function map2(result, fun) {
+  if (result.isOk()) {
+    let x = result[0];
+    return new Ok(fun(x));
+  } else {
+    let e = result[0];
+    return new Error(e);
+  }
+}
+function map_error(result, fun) {
+  if (result.isOk()) {
+    let x = result[0];
+    return new Ok(x);
+  } else {
+    let error = result[0];
+    return new Error(fun(error));
+  }
+}
+function try$(result, fun) {
+  if (result.isOk()) {
+    let x = result[0];
+    return fun(x);
+  } else {
+    let e = result[0];
+    return new Error(e);
+  }
+}
+
 // build/dev/javascript/gleam_stdlib/gleam/string_builder.mjs
 function from_strings(strings) {
   return concat(strings);
 }
-function to_string2(builder) {
+function to_string3(builder) {
   return identity(builder);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/dynamic.mjs
+var DecodeError = class extends CustomType {
+  constructor(expected, found, path) {
+    super();
+    this.expected = expected;
+    this.found = found;
+    this.path = path;
+  }
+};
 function from(a) {
   return identity(a);
+}
+function string(data) {
+  return decode_string(data);
+}
+function classify(data) {
+  return classify_dynamic(data);
+}
+function int(data) {
+  return decode_int(data);
+}
+function any(decoders) {
+  return (data) => {
+    if (decoders.hasLength(0)) {
+      return new Error(
+        toList([new DecodeError("another type", classify(data), toList([]))])
+      );
+    } else {
+      let decoder = decoders.head;
+      let decoders$1 = decoders.tail;
+      let $ = decoder(data);
+      if ($.isOk()) {
+        let decoded = $[0];
+        return new Ok(decoded);
+      } else {
+        return any(decoders$1)(data);
+      }
+    }
+  };
+}
+function push_path(error, name) {
+  let name$1 = from(name);
+  let decoder = any(
+    toList([string, (x) => {
+      return map2(int(x), to_string2);
+    }])
+  );
+  let name$2 = (() => {
+    let $ = decoder(name$1);
+    if ($.isOk()) {
+      let name$22 = $[0];
+      return name$22;
+    } else {
+      let _pipe = toList(["<", classify(name$1), ">"]);
+      let _pipe$1 = from_strings(_pipe);
+      return to_string3(_pipe$1);
+    }
+  })();
+  return error.withFields({ path: prepend(name$2, error.path) });
+}
+function map_errors(result, f) {
+  return map_error(
+    result,
+    (_capture) => {
+      return map(_capture, f);
+    }
+  );
+}
+function field(name, inner_type) {
+  return (value) => {
+    let missing_field_error = new DecodeError("field", "nothing", toList([]));
+    return try$(
+      decode_field(value, name),
+      (maybe_inner) => {
+        let _pipe = maybe_inner;
+        let _pipe$1 = to_result(_pipe, toList([missing_field_error]));
+        let _pipe$2 = try$(_pipe$1, inner_type);
+        return map_errors(
+          _pipe$2,
+          (_capture) => {
+            return push_path(_capture, name);
+          }
+        );
+      }
+    );
+  };
 }
 
 // build/dev/javascript/gleam_stdlib/dict.mjs
@@ -1137,6 +1262,9 @@ var NOT_FOUND = {};
 function identity(x) {
   return x;
 }
+function to_string(term) {
+  return term.toString();
+}
 function string_length(string3) {
   if (string3 === "") {
     return 0;
@@ -1196,6 +1324,68 @@ function map_get(map4, key) {
 }
 function map_insert(key, value, map4) {
   return map4.set(key, value);
+}
+function classify_dynamic(data) {
+  if (typeof data === "string") {
+    return "String";
+  } else if (typeof data === "boolean") {
+    return "Bool";
+  } else if (data instanceof Result) {
+    return "Result";
+  } else if (data instanceof List) {
+    return "List";
+  } else if (data instanceof BitArray) {
+    return "BitArray";
+  } else if (data instanceof Dict) {
+    return "Dict";
+  } else if (Number.isInteger(data)) {
+    return "Int";
+  } else if (Array.isArray(data)) {
+    return `Tuple of ${data.length} elements`;
+  } else if (typeof data === "number") {
+    return "Float";
+  } else if (data === null) {
+    return "Null";
+  } else if (data === void 0) {
+    return "Nil";
+  } else {
+    const type = typeof data;
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  }
+}
+function decoder_error(expected, got) {
+  return decoder_error_no_classify(expected, classify_dynamic(got));
+}
+function decoder_error_no_classify(expected, got) {
+  return new Error(
+    List.fromArray([new DecodeError(expected, got, List.fromArray([]))])
+  );
+}
+function decode_string(data) {
+  return typeof data === "string" ? new Ok(data) : decoder_error("String", data);
+}
+function decode_int(data) {
+  return Number.isInteger(data) ? new Ok(data) : decoder_error("Int", data);
+}
+function decode_field(value, name) {
+  const not_a_map_error = () => decoder_error("Dict", value);
+  if (value instanceof Dict || value instanceof WeakMap || value instanceof Map) {
+    const entry = map_get(value, name);
+    return new Ok(entry.isOk() ? new Some(entry[0]) : new None());
+  } else if (value === null) {
+    return not_a_map_error();
+  } else if (Object.getPrototypeOf(value) == Object.prototype) {
+    return try_get_field(value, name, () => new Ok(new None()));
+  } else {
+    return try_get_field(value, name, not_a_map_error);
+  }
+}
+function try_get_field(value, field2, or_else) {
+  try {
+    return field2 in value ? new Ok(new Some(value[field2])) : or_else();
+  } catch {
+    return or_else();
+  }
 }
 function inspect(v) {
   const t = typeof v;
@@ -1442,7 +1632,7 @@ function lowercase2(string3) {
 function concat3(strings) {
   let _pipe = strings;
   let _pipe$1 = from_strings(_pipe);
-  return to_string2(_pipe$1);
+  return to_string3(_pipe$1);
 }
 function do_slice(string3, idx, len) {
   let _pipe = string3;
@@ -1499,7 +1689,7 @@ function pad_right(string3, desired_length, pad_string) {
 }
 function inspect2(term) {
   let _pipe = inspect(term);
-  return to_string2(_pipe);
+  return to_string3(_pipe);
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/io.mjs
@@ -1592,6 +1782,12 @@ function style(properties) {
       }
     )
   );
+}
+function class$(name) {
+  return attribute("class", name);
+}
+function src(uri) {
+  return attribute("src", uri);
 }
 
 // build/dev/javascript/lustre/lustre/element.mjs
@@ -2127,6 +2323,9 @@ function main(attrs, children) {
 function div(attrs, children) {
   return element("div", attrs, children);
 }
+function img(attrs) {
+  return element("img", attrs, toList([]));
+}
 function button(attrs, children) {
   return element("button", attrs, children);
 }
@@ -2140,14 +2339,25 @@ function on_click(msg) {
     return new Ok(msg);
   });
 }
+function on_keydown(msg) {
+  return on2(
+    "keydown",
+    (event2) => {
+      let _pipe = event2;
+      let _pipe$1 = field("key", string)(_pipe);
+      return map2(_pipe$1, msg);
+    }
+  );
+}
 
 // build/dev/javascript/namedle/namedle.mjs
 var Model = class extends CustomType {
-  constructor(guesses, current, known_letters) {
+  constructor(guesses, current, known_letters, has_won) {
     super();
     this.guesses = guesses;
     this.current = current;
     this.known_letters = known_letters;
+    this.has_won = has_won;
   }
 };
 var Guess = class extends CustomType {
@@ -2174,15 +2384,15 @@ var Letter = class extends CustomType {
   }
 };
 function init2(_) {
-  return new Model(toList([]), "", new$());
+  return new Model(toList([]), "", new$(), false);
 }
-function hex_from_color(c) {
-  if (c instanceof Gray) {
-    return "#333";
+function color_class(c) {
+  if (c instanceof Green) {
+    return "green";
   } else if (c instanceof Yellow) {
-    return "#883";
+    return "yellow";
   } else {
-    return "#393";
+    return "gray";
   }
 }
 function assert_eq(a, b, msg) {
@@ -2192,7 +2402,7 @@ function assert_eq(a, b, msg) {
   } else {
     debug(a);
     debug(b);
-    throw makeError("panic", "namedle", 122, "assert_eq", msg, {});
+    throw makeError("panic", "namedle", 131, "assert_eq", msg, {});
   }
 }
 function match_yellows(guess, unmatched) {
@@ -2200,7 +2410,7 @@ function match_yellows(guess, unmatched) {
     throw makeError(
       "panic",
       "namedle",
-      167,
+      176,
       "match_yellows",
       "empty guess list should never happen",
       {}
@@ -2243,7 +2453,7 @@ function match_yellows(guess, unmatched) {
     return prepend(letter$1, match_yellows(rest, unmatched$1));
   }
 }
-function letter_view(letter) {
+function letter_view(letter, rainbow) {
   return div(
     toList([
       style(
@@ -2251,22 +2461,35 @@ function letter_view(letter) {
           ["width", "1.5em"],
           ["height", "1.5em"],
           ["font-size", "4rem"],
-          ["background-color", hex_from_color(letter.color)],
           ["text-transform", "uppercase"],
           ["display", "grid"],
           ["place-items", "center"]
         ])
+      ),
+      class$(
+        (() => {
+          if (rainbow) {
+            return "rainbow";
+          } else {
+            return color_class(letter.color);
+          }
+        })()
       )
     ]),
     toList([text(letter.letter)])
   );
 }
-function letter_container(children) {
+function letter_container(children, rainbow) {
   return div(
     toList([style(toList([["display", "flex"], ["gap", "1rem"]]))]),
     (() => {
       let _pipe = children;
-      return map(_pipe, letter_view);
+      return map(
+        _pipe,
+        (_capture) => {
+          return letter_view(_capture, rainbow);
+        }
+      );
     })()
   );
 }
@@ -2282,9 +2505,9 @@ function keyboard_row_view(row, model) {
             toList([
               on_click(
                 (() => {
-                  if (letter === "backspace") {
+                  if (letter === "BS") {
                     return new Backspace();
-                  } else if (letter === "enter") {
+                  } else if (letter === "CR") {
                     return new Guess();
                   } else {
                     let l = letter;
@@ -2292,50 +2515,49 @@ function keyboard_row_view(row, model) {
                   }
                 })()
               ),
+              class$(
+                (() => {
+                  let $ = (() => {
+                    let _pipe$1 = model.known_letters;
+                    return get(_pipe$1, letter);
+                  })();
+                  if ($.isOk()) {
+                    let c = $[0];
+                    return color_class(c);
+                  } else {
+                    return "light-gray";
+                  }
+                })()
+              ),
               style(
                 toList([
                   ["display", "grid"],
                   ["border", "none"],
-                  [
-                    "background-color",
-                    (() => {
-                      let $ = (() => {
-                        let _pipe$1 = model.known_letters;
-                        return get(_pipe$1, letter);
-                      })();
-                      if ($.isOk()) {
-                        let c = $[0];
-                        return hex_from_color(c);
-                      } else {
-                        return "#555";
-                      }
-                    })()
-                  ],
                   ["place-items", "center"],
                   ["cursor", "pointer"],
                   [
                     "width",
                     (() => {
-                      if (letter === "backspace") {
-                        return "2.5em";
-                      } else if (letter === "enter") {
-                        return "2.5em";
+                      if (letter === "BS") {
+                        return "2.75em";
+                      } else if (letter === "CR") {
+                        return "2.75em";
                       } else {
-                        return "1.5em";
+                        return "1.675em";
                       }
                     })()
                   ],
-                  ["height", "2em"],
-                  ["font-size", "1.75rem"],
+                  ["height", "2.25em"],
+                  ["font-size", "1.9rem"],
                   ["text-transform", "uppercase"]
                 ])
               )
             ]),
             toList([
               (() => {
-                if (letter === "backspace") {
+                if (letter === "BS") {
                   return text("\u232B");
-                } else if (letter === "enter") {
+                } else if (letter === "CR") {
                   return text("\u21A9");
                 } else {
                   let l = letter;
@@ -2444,13 +2666,19 @@ function add_known_letters_from_guess(known_letters, guess) {
 function update2(model, msg) {
   if (msg instanceof NewLetter) {
     let value = msg.value;
+    assert_eq(
+      length3(value),
+      1,
+      "only one new letter at a time: " + value
+    );
     let $ = length3(target) - length3(model.current);
     if ($ > 0) {
       let diff2 = $;
       return new Model(
         model.guesses,
         model.current + value,
-        model.known_letters
+        model.known_letters,
+        model.has_won
       );
     } else {
       return model;
@@ -2462,7 +2690,8 @@ function update2(model, msg) {
         let _pipe = model.current;
         return drop_right(_pipe, 1);
       })(),
-      model.known_letters
+      model.known_letters,
+      model.has_won
     );
   } else {
     let $ = length3(target) - length3(model.current);
@@ -2474,7 +2703,8 @@ function update2(model, msg) {
         (() => {
           let _pipe = model.known_letters;
           return add_known_letters_from_guess(_pipe, model.current);
-        })()
+        })(),
+        model.has_won || model.current === target
       );
     } else {
       return model;
@@ -2482,25 +2712,28 @@ function update2(model, msg) {
   }
 }
 function guess_view(guess) {
+  let rainbow = guess === target;
   let guess$1 = match(guess);
-  return letter_container(guess$1);
+  return letter_container(guess$1, rainbow);
 }
 var first_row = toList(["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]);
 var second_row = toList(["a", "s", "d", "f", "g", "h", "j", "k", "l"]);
-var third_row = toList([
-  "enter",
-  "z",
-  "x",
-  "c",
-  "v",
-  "b",
-  "n",
-  "m",
-  "backspace"
-]);
+var third_row = toList(["CR", "z", "x", "c", "v", "b", "n", "m", "BS"]);
 function view(model) {
   return main(
     toList([
+      on_keydown(
+        (l) => {
+          if (l === "Backspace") {
+            return new Backspace();
+          } else if (l === "Enter") {
+            return new Guess();
+          } else {
+            let l$1 = l;
+            return new NewLetter(l$1);
+          }
+        }
+      ),
       style(
         toList([
           ["display", "flex"],
@@ -2512,38 +2745,89 @@ function view(model) {
       )
     ]),
     toList([
-      h1(toList([]), toList([text("Guess the name!")])),
-      fragment(map(model.guesses, guess_view)),
-      letter_container(
-        (() => {
-          let _pipe = model.current;
-          let _pipe$1 = pad_right(_pipe, length3(target), " ");
-          let _pipe$2 = graphemes(_pipe$1);
-          return map(
-            _pipe$2,
-            (letter) => {
-              return new Letter(letter, new Gray());
-            }
-          );
-        })()
-      ),
-      div(
+      h1(
+        toList([]),
         toList([
-          style(
-            toList([
-              ["display", "flex"],
-              ["flex-direction", "column"],
-              ["align-items", "center"],
-              ["gap", "1rem"]
-            ])
+          text(
+            (() => {
+              let $ = model.has_won;
+              if ($) {
+                return "Congratulations!";
+              } else {
+                return "Guess the name!";
+              }
+            })()
           )
-        ]),
-        toList([
-          keyboard_row_view(first_row, model),
-          keyboard_row_view(second_row, model),
-          keyboard_row_view(third_row, model)
         ])
-      )
+      ),
+      fragment(map(model.guesses, guess_view)),
+      (() => {
+        let $ = model.has_won;
+        if ($) {
+          return fragment(toList([]));
+        } else {
+          return letter_container(
+            (() => {
+              let _pipe = model.current;
+              let _pipe$1 = pad_right(
+                _pipe,
+                length3(target),
+                " "
+              );
+              let _pipe$2 = graphemes(_pipe$1);
+              return map(
+                _pipe$2,
+                (letter) => {
+                  return new Letter(letter, new Gray());
+                }
+              );
+            })(),
+            false
+          );
+        }
+      })(),
+      (() => {
+        let $ = model.has_won;
+        if (!$) {
+          return div(
+            toList([
+              style(
+                toList([
+                  ["display", "flex"],
+                  ["flex-direction", "column"],
+                  ["align-items", "center"],
+                  ["gap", "1rem"]
+                ])
+              )
+            ]),
+            toList([
+              keyboard_row_view(first_row, model),
+              keyboard_row_view(second_row, model),
+              keyboard_row_view(third_row, model)
+            ])
+          );
+        } else {
+          return div(
+            toList([style(toList([["display", "flex"]]))]),
+            toList([
+              img(
+                toList([
+                  src("/priv/static/cat1.webp"),
+                  attribute("frameBorder", "0"),
+                  style(toList([["width", "20rem"], ["height", "20rem"]]))
+                ])
+              ),
+              img(
+                toList([
+                  src("/priv/static/cat2.webp"),
+                  attribute("frameBorder", "0"),
+                  style(toList([["width", "20rem"], ["height", "20rem"]]))
+                ])
+              )
+            ])
+          );
+        }
+      })()
     ])
   );
 }
