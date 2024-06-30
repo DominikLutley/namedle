@@ -2495,7 +2495,7 @@ function letter_container(children, rainbow) {
 }
 function keyboard_row_view(row, model) {
   return div(
-    toList([style(toList([["display", "flex"], ["gap", "1rem"]]))]),
+    toList([style(toList([["display", "flex"], ["gap", "0.675rem"]]))]),
     (() => {
       let _pipe = row;
       return map(
@@ -2539,15 +2539,15 @@ function keyboard_row_view(row, model) {
                     "width",
                     (() => {
                       if (letter === "BS") {
-                        return "2.75em";
+                        return "2.875em";
                       } else if (letter === "CR") {
-                        return "2.75em";
+                        return "2.875em";
                       } else {
-                        return "1.675em";
+                        return "1.835em";
                       }
                     })()
                   ],
-                  ["height", "2.25em"],
+                  ["height", "2.5em"],
                   ["font-size", "1.9rem"],
                   ["text-transform", "uppercase"]
                 ])
@@ -2739,53 +2739,70 @@ function view(model) {
           ["display", "flex"],
           ["flex-direction", "column"],
           ["align-items", "center"],
+          ["justify-content", "space-between"],
           ["gap", "1.5rem"],
-          ["padding", "1.5rem"]
+          ["padding", "1.5rem"],
+          ["padding-bottom", "3.5rem"],
+          ["min-height", "100vh"]
         ])
       )
     ]),
     toList([
-      h1(
-        toList([]),
+      div(
         toList([
-          text(
-            (() => {
-              let $ = model.has_won;
-              if ($) {
-                return "Congratulations!";
-              } else {
-                return "Guess the name!";
-              }
-            })()
+          style(
+            toList([
+              ["display", "flex"],
+              ["flex-direction", "column"],
+              ["align-items", "center"],
+              ["gap", "1.5rem"]
+            ])
           )
+        ]),
+        toList([
+          h1(
+            toList([]),
+            toList([
+              text(
+                (() => {
+                  let $ = model.has_won;
+                  if ($) {
+                    return "Congratulations!";
+                  } else {
+                    return "Guess the name!";
+                  }
+                })()
+              )
+            ])
+          ),
+          fragment(map(model.guesses, guess_view)),
+          (() => {
+            let $ = model.has_won;
+            if ($) {
+              return fragment(toList([]));
+            } else {
+              return letter_container(
+                (() => {
+                  let _pipe = model.current;
+                  let _pipe$1 = pad_right(
+                    _pipe,
+                    length3(target),
+                    " "
+                  );
+                  let _pipe$2 = graphemes(_pipe$1);
+                  return map(
+                    _pipe$2,
+                    (letter) => {
+                      return new Letter(letter, new Gray());
+                    }
+                  );
+                })(),
+                false
+              );
+            }
+          })()
         ])
       ),
-      fragment(map(model.guesses, guess_view)),
-      (() => {
-        let $ = model.has_won;
-        if ($) {
-          return fragment(toList([]));
-        } else {
-          return letter_container(
-            (() => {
-              let _pipe = model.current;
-              let _pipe$1 = pad_right(
-                _pipe,
-                length3(target),
-                " "
-              );
-              let _pipe$2 = graphemes(_pipe$1);
-              return map(
-                _pipe$2,
-                (letter) => {
-                  return new Letter(letter, new Gray());
-                }
-              );
-            })(),
-            false
-          );
-        }
-      })(),
       (() => {
         let $ = model.has_won;
         if (!$) {
@@ -2796,7 +2813,7 @@ function view(model) {
                   ["display", "flex"],
                   ["flex-direction", "column"],
                   ["align-items", "center"],
-                  ["gap", "1rem"]
+                  ["gap", "0.675rem"]
                 ])
               )
             ]),

@@ -241,7 +241,7 @@ fn guess_view(guess: String) {
 
 fn keyboard_row_view(row, model: Model) {
   div(
-    [style([#("display", "flex"), #("gap", "1rem")])],
+    [style([#("display", "flex"), #("gap", "0.675rem")])],
     row
       |> list.map(fn(letter) {
         button(
@@ -261,10 +261,10 @@ fn keyboard_row_view(row, model: Model) {
               #("place-items", "center"),
               #("cursor", "pointer"),
               #("width", case letter {
-                "BS" | "CR" -> "2.75em"
-                _ -> "1.675em"
+                "BS" | "CR" -> "2.875em"
+                _ -> "1.835em"
               }),
-              #("height", "2.25em"),
+              #("height", "2.5em"),
               #("font-size", "1.9rem"),
               #("text-transform", "uppercase"),
             ]),
@@ -295,29 +295,44 @@ fn view(model: Model) {
         #("display", "flex"),
         #("flex-direction", "column"),
         #("align-items", "center"),
+        #("justify-content", "space-between"),
         #("gap", "1.5rem"),
         #("padding", "1.5rem"),
+        #("padding-bottom", "3.5rem"),
+        #("min-height", "100vh"),
       ]),
     ],
     [
-      html.h1([], [
-        element.text(case model.has_won {
-          True -> "Congratulations!"
-          False -> "Guess the name!"
-        }),
-      ]),
-      fragment(list.map(model.guesses, guess_view)),
-      case model.has_won {
-        True -> fragment([])
-        False ->
-          letter_container(
-            model.current
-              |> string.pad_right(to: string.length(target), with: " ")
-              |> string.to_graphemes
-              |> list.map(fn(letter) { Letter(letter: letter, color: Gray) }),
-            False,
-          )
-      },
+      div(
+        [
+          style([
+            #("display", "flex"),
+            #("flex-direction", "column"),
+            #("align-items", "center"),
+            #("gap", "1.5rem"),
+          ]),
+        ],
+        [
+          html.h1([], [
+            element.text(case model.has_won {
+              True -> "Congratulations!"
+              False -> "Guess the name!"
+            }),
+          ]),
+          fragment(list.map(model.guesses, guess_view)),
+          case model.has_won {
+            True -> fragment([])
+            False ->
+              letter_container(
+                model.current
+                  |> string.pad_right(to: string.length(target), with: " ")
+                  |> string.to_graphemes
+                  |> list.map(fn(letter) { Letter(letter: letter, color: Gray) }),
+                False,
+              )
+          },
+        ],
+      ),
       case model.has_won {
         False ->
           html.div(
@@ -326,7 +341,7 @@ fn view(model: Model) {
                 #("display", "flex"),
                 #("flex-direction", "column"),
                 #("align-items", "center"),
-                #("gap", "1rem"),
+                #("gap", "0.675rem"),
               ]),
             ],
             [
