@@ -2812,14 +2812,14 @@ function view(model) {
             toList([
               img(
                 toList([
-                  src("/priv/static/cat1.webp"),
+                  src("priv/static/cat1.webp"),
                   attribute("frameBorder", "0"),
                   style(toList([["width", "20rem"], ["height", "20rem"]]))
                 ])
               ),
               img(
                 toList([
-                  src("/priv/static/cat2.webp"),
+                  src("priv/static/cat2.webp"),
                   attribute("frameBorder", "0"),
                   style(toList([["width", "20rem"], ["height", "20rem"]]))
                 ])

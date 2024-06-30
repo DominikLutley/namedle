@@ -338,12 +338,12 @@ fn view(model: Model) {
         True ->
           div([style([#("display", "flex")])], [
             html.img([
-              attribute.src("/priv/static/cat1.webp"),
+              attribute.src("priv/static/cat1.webp"),
               attribute.attribute("frameBorder", "0"),
               style([#("width", "20rem"), #("height", "20rem")]),
             ]),
             html.img([
-              attribute.src("/priv/static/cat2.webp"),
+              attribute.src("priv/static/cat2.webp"),
               attribute.attribute("frameBorder", "0"),
               style([#("width", "20rem"), #("height", "20rem")]),
             ]),
