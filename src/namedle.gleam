@@ -299,7 +299,7 @@ fn view(model: Model) {
         #("gap", "1.5rem"),
         #("padding", "1.5rem"),
         #("padding-bottom", "3.5rem"),
-        #("min-height", "100vh"),
+        #("min-height", "100svh"),
       ]),
     ],
     [
