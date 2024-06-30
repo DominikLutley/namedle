@@ -317,7 +317,7 @@ fn view(model: Model) {
         #("justify-content", "space-between"),
         #("gap", "1.5rem"),
         #("padding", "1.5rem"),
-        #("padding-bottom", "2.5rem"),
+        #("padding-bottom", "2rem"),
         #("min-height", "100svh"),
       ]),
     ],
@@ -372,12 +372,12 @@ fn view(model: Model) {
         True ->
           div([style([#("display", "flex")])], [
             html.img([
-              attribute.src("priv/static/cat1.webp"),
+              attribute.src("priv/static/cat1.gif"),
               attribute.attribute("frameBorder", "0"),
               style([#("width", "20rem"), #("height", "20rem")]),
             ]),
             html.img([
-              attribute.src("priv/static/cat2.webp"),
+              attribute.src("priv/static/cat2.gif"),
               attribute.attribute("frameBorder", "0"),
               style([#("width", "20rem"), #("height", "20rem")]),
             ]),

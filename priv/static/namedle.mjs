@@ -2774,7 +2774,7 @@ function view(model) {
           ["justify-content", "space-between"],
           ["gap", "1.5rem"],
           ["padding", "1.5rem"],
-          ["padding-bottom", "2.5rem"],
+          ["padding-bottom", "2rem"],
           ["min-height", "100svh"]
         ])
       )
@@ -2861,14 +2861,14 @@ function view(model) {
             toList([
               img(
                 toList([
-                  src("priv/static/cat1.webp"),
+                  src("priv/static/cat1.gif"),
                   attribute("frameBorder", "0"),
                   style(toList([["width", "20rem"], ["height", "20rem"]]))
                 ])
               ),
               img(
                 toList([
-                  src("priv/static/cat2.webp"),
+                  src("priv/static/cat2.gif"),
                   attribute("frameBorder", "0"),
                   style(toList([["width", "20rem"], ["height", "20rem"]]))
                 ])
