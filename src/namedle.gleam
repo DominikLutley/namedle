@@ -7,6 +7,7 @@ import lustre
 import lustre/attribute.{class, style}
 import lustre/element.{fragment, text}
 import lustre/element/html.{button, div}
+import lustre/element/svg
 import lustre/event.{on_click, on_keydown}
 
 const target = "ariana"
@@ -239,6 +240,24 @@ fn guess_view(guess: String) {
   letter_container(guess, rainbow)
 }
 
+fn backspace_icon() {
+  html.img([
+    attribute.src(
+      "https://api.iconify.design/material-symbols:backspace-outline.svg",
+    ),
+    style([#("width", "1.5em"), #("height", "1.5em"), #("filter", "invert(1)")]),
+  ])
+}
+
+fn return_icon() {
+  html.img([
+    attribute.src(
+      "https://api.iconify.design/material-symbols:keyboard-return-rounded.svg",
+    ),
+    style([#("width", "1.5em"), #("height", "1.5em"), #("filter", "invert(1)")]),
+  ])
+}
+
 fn keyboard_row_view(row, model: Model) {
   div(
     [style([#("display", "flex"), #("gap", "0.675rem")])],
@@ -271,8 +290,8 @@ fn keyboard_row_view(row, model: Model) {
           ],
           [
             case letter {
-              "BS" -> text("⌫")
-              "CR" -> text("↩")
+              "BS" -> backspace_icon()
+              "CR" -> return_icon()
               l -> text(l)
             },
           ],
@@ -298,7 +317,7 @@ fn view(model: Model) {
         #("justify-content", "space-between"),
         #("gap", "1.5rem"),
         #("padding", "1.5rem"),
-        #("padding-bottom", "3.5rem"),
+        #("padding-bottom", "2.5rem"),
         #("min-height", "100svh"),
       ]),
     ],

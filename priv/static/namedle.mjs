@@ -2402,7 +2402,7 @@ function assert_eq(a, b, msg) {
   } else {
     debug(a);
     debug(b);
-    throw makeError("panic", "namedle", 131, "assert_eq", msg, {});
+    throw makeError("panic", "namedle", 132, "assert_eq", msg, {});
   }
 }
 function match_yellows(guess, unmatched) {
@@ -2410,7 +2410,7 @@ function match_yellows(guess, unmatched) {
     throw makeError(
       "panic",
       "namedle",
-      176,
+      177,
       "match_yellows",
       "empty guess list should never happen",
       {}
@@ -2493,6 +2493,38 @@ function letter_container(children, rainbow) {
     })()
   );
 }
+function backspace_icon() {
+  return img(
+    toList([
+      src(
+        "https://api.iconify.design/material-symbols:backspace-outline.svg"
+      ),
+      style(
+        toList([
+          ["width", "1.5em"],
+          ["height", "1.5em"],
+          ["filter", "invert(1)"]
+        ])
+      )
+    ])
+  );
+}
+function return_icon() {
+  return img(
+    toList([
+      src(
+        "https://api.iconify.design/material-symbols:keyboard-return-rounded.svg"
+      ),
+      style(
+        toList([
+          ["width", "1.5em"],
+          ["height", "1.5em"],
+          ["filter", "invert(1)"]
+        ])
+      )
+    ])
+  );
+}
 function keyboard_row_view(row, model) {
   return div(
     toList([style(toList([["display", "flex"], ["gap", "0.675rem"]]))]),
@@ -2556,9 +2588,9 @@ function keyboard_row_view(row, model) {
             toList([
               (() => {
                 if (letter === "BS") {
-                  return text("\u232B");
+                  return backspace_icon();
                 } else if (letter === "CR") {
-                  return text("\u21A9");
+                  return return_icon();
                 } else {
                   let l = letter;
                   return text(l);
@@ -2742,7 +2774,7 @@ function view(model) {
           ["justify-content", "space-between"],
           ["gap", "1.5rem"],
           ["padding", "1.5rem"],
-          ["padding-bottom", "3.5rem"],
+          ["padding-bottom", "2.5rem"],
           ["min-height", "100svh"]
         ])
       )
@@ -2855,7 +2887,7 @@ function main2() {
     throw makeError(
       "assignment_no_match",
       "namedle",
-      22,
+      23,
       "main",
       "Assignment pattern did not match",
       { value: $ }
