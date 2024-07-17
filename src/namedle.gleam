@@ -344,7 +344,7 @@ fn view(model: Model) {
                 html.p(
                   [
                     style([
-                      #("font-size", "1.675rem"),
+                      #("font-size", "1.6rem"),
                       #("font-weight", "400"),
                       #("text-align", "center"),
                       #("color", "#ddd"),
@@ -356,7 +356,7 @@ fn view(model: Model) {
                 html.p(
                   [
                     style([
-                      #("font-size", "1.675rem"),
+                      #("font-size", "1.6rem"),
                       #("font-weight", "400"),
                       #("text-align", "center"),
                       #("color", "#ddd"),

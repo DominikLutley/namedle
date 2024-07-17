@@ -2853,7 +2853,7 @@ function view(model) {
                     toList([
                       style(
                         toList([
-                          ["font-size", "1.675rem"],
+                          ["font-size", "1.6rem"],
                           ["font-weight", "400"],
                           ["text-align", "center"],
                           ["color", "#ddd"],
@@ -2867,7 +2867,7 @@ function view(model) {
                     toList([
                       style(
                         toList([
-                          ["font-size", "1.675rem"],
+                          ["font-size", "1.6rem"],
                           ["font-weight", "400"],
                           ["text-align", "center"],
                           ["color", "#ddd"]
