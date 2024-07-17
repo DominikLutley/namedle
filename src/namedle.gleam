@@ -7,7 +7,6 @@ import lustre
 import lustre/attribute.{class, style}
 import lustre/element.{fragment, text}
 import lustre/element/html.{button, div}
-import lustre/element/svg
 import lustre/event.{on_click, on_keydown}
 
 const target = "ariana"
@@ -89,8 +88,8 @@ fn update(model: Model, msg) {
         has_won: model.has_won,
       )
     Guess -> {
-      case string.length(target) - string.length(model.current) {
-        diff if diff == 0 -> {
+      case string.length(target) - string.length(model.current), model.has_won {
+        diff, False if diff == 0 -> {
           Model(
             guesses: list.append(model.guesses, [model.current]),
             current: "",
@@ -99,7 +98,7 @@ fn update(model: Model, msg) {
             has_won: model.has_won || model.current == target,
           )
         }
-        _ -> model
+        _, _ -> model
       }
     }
   }
@@ -340,7 +339,36 @@ fn view(model: Model) {
           ]),
           fragment(list.map(model.guesses, guess_view)),
           case model.has_won {
-            True -> fragment([])
+            True ->
+              div([], [
+                html.p(
+                  [
+                    style([
+                      #("font-size", "1.675rem"),
+                      #("font-weight", "400"),
+                      #("text-align", "center"),
+                      #("color", "#ddd"),
+                      #("margin-bottom", "0.5rem"),
+                    ]),
+                  ],
+                  [text("Meaning: most holy, noble, beautiful melody")],
+                ),
+                html.p(
+                  [
+                    style([
+                      #("font-size", "1.675rem"),
+                      #("font-weight", "400"),
+                      #("text-align", "center"),
+                      #("color", "#ddd"),
+                    ]),
+                  ],
+                  [
+                    text(
+                      "Znaczenie: najświętsza, szlachetna, piękna melodia",
+                    ),
+                  ],
+                ),
+              ])
             False ->
               letter_container(
                 model.current
@@ -354,7 +382,7 @@ fn view(model: Model) {
       ),
       case model.has_won {
         False ->
-          html.div(
+          div(
             [
               style([
                 #("display", "flex"),

@@ -2323,6 +2323,9 @@ function main(attrs, children) {
 function div(attrs, children) {
   return element("div", attrs, children);
 }
+function p(attrs, children) {
+  return element("p", attrs, children);
+}
 function img(attrs) {
   return element("img", attrs, toList([]));
 }
@@ -2402,7 +2405,7 @@ function assert_eq(a, b, msg) {
   } else {
     debug(a);
     debug(b);
-    throw makeError("panic", "namedle", 132, "assert_eq", msg, {});
+    throw makeError("panic", "namedle", 131, "assert_eq", msg, {});
   }
 }
 function match_yellows(guess, unmatched) {
@@ -2410,7 +2413,7 @@ function match_yellows(guess, unmatched) {
     throw makeError(
       "panic",
       "namedle",
-      177,
+      176,
       "match_yellows",
       "empty guess list should never happen",
       {}
@@ -2727,7 +2730,8 @@ function update2(model, msg) {
     );
   } else {
     let $ = length3(target) - length3(model.current);
-    if ($ === 0) {
+    let $1 = model.has_won;
+    if (!$1 && $ === 0) {
       let diff2 = $;
       return new Model(
         append(model.guesses, toList([model.current])),
@@ -2748,9 +2752,40 @@ function guess_view(guess) {
   let guess$1 = match(guess);
   return letter_container(guess$1, rainbow);
 }
-var first_row = toList(["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]);
-var second_row = toList(["a", "s", "d", "f", "g", "h", "j", "k", "l"]);
-var third_row = toList(["CR", "z", "x", "c", "v", "b", "n", "m", "BS"]);
+var first_row = /* @__PURE__ */ toList([
+  "q",
+  "w",
+  "e",
+  "r",
+  "t",
+  "y",
+  "u",
+  "i",
+  "o",
+  "p"
+]);
+var second_row = /* @__PURE__ */ toList([
+  "a",
+  "s",
+  "d",
+  "f",
+  "g",
+  "h",
+  "j",
+  "k",
+  "l"
+]);
+var third_row = /* @__PURE__ */ toList([
+  "CR",
+  "z",
+  "x",
+  "c",
+  "v",
+  "b",
+  "n",
+  "m",
+  "BS"
+]);
 function view(model) {
   return main(
     toList([
@@ -2811,7 +2846,42 @@ function view(model) {
           (() => {
             let $ = model.has_won;
             if ($) {
-              return fragment(toList([]));
+              return div(
+                toList([]),
+                toList([
+                  p(
+                    toList([
+                      style(
+                        toList([
+                          ["font-size", "1.675rem"],
+                          ["font-weight", "400"],
+                          ["text-align", "center"],
+                          ["color", "#ddd"],
+                          ["margin-bottom", "0.5rem"]
+                        ])
+                      )
+                    ]),
+                    toList([text("Meaning: most holy, noble, beautiful melody")])
+                  ),
+                  p(
+                    toList([
+                      style(
+                        toList([
+                          ["font-size", "1.675rem"],
+                          ["font-weight", "400"],
+                          ["text-align", "center"],
+                          ["color", "#ddd"]
+                        ])
+                      )
+                    ]),
+                    toList([
+                      text(
+                        "Znaczenie: naj\u015Bwi\u0119tsza, szlachetna, pi\u0119kna melodia"
+                      )
+                    ])
+                  )
+                ])
+              );
             } else {
               return letter_container(
                 (() => {
@@ -2887,7 +2957,7 @@ function main2() {
     throw makeError(
       "assignment_no_match",
       "namedle",
-      23,
+      22,
       "main",
       "Assignment pattern did not match",
       { value: $ }
